@@ -5,15 +5,19 @@ use ggez::timer;
 use nalgebra as na;
 use mint;
 use rand::Rng;
+use std::time::{Duration, Instant};
 
 const SCREEN_WIDTH: f32 = 1080.0;
 const SCREEN_HEIGHT: f32 = 1920.0;
 const BALL_RADIUS: f32 = 20.0;
+const COOLDOWN_DURATION: Duration = Duration::from_secs(1); // 1 second cooldown
+const MAX_BALLS: usize = 500; // Maximum number of balls
 
 struct Ball {
     position: na::Point2<f32>,
     velocity: na::Vector2<f32>,
     color: Color,
+    last_multiplied: Instant,
 }
 
 impl Ball {
@@ -22,6 +26,7 @@ impl Ball {
             position: na::Point2::new(x, y),
             velocity: na::Vector2::new(vx, vy),
             color,
+            last_multiplied: Instant::now(),
         }
     }
 
@@ -29,12 +34,14 @@ impl Ball {
         self.position += self.velocity;
         let mut hit = false;
 
-        if self.position.x <= BALL_RADIUS || self.position.x >= SCREEN_WIDTH - BALL_RADIUS {
+        if self.position.x - BALL_RADIUS <= 0.0 || self.position.x + BALL_RADIUS >= SCREEN_WIDTH {
             self.velocity.x = -self.velocity.x;
+            self.position.x = self.position.x.max(BALL_RADIUS).min(SCREEN_WIDTH - BALL_RADIUS);
             hit = true;
         }
-        if self.position.y <= BALL_RADIUS || self.position.y >= SCREEN_HEIGHT - BALL_RADIUS {
+        if self.position.y - BALL_RADIUS <= 0.0 || self.position.y + BALL_RADIUS >= SCREEN_HEIGHT {
             self.velocity.y = -self.velocity.y;
+            self.position.y = self.position.y.max(BALL_RADIUS).min(SCREEN_HEIGHT - BALL_RADIUS);
             hit = true;
         }
 
@@ -68,22 +75,20 @@ impl MainState {
 impl EventHandler<ggez::GameError> for MainState {
     fn update(&mut self, _ctx: &mut Context) -> GameResult {
         let mut rng = rand::thread_rng();
-        let mut new_ball = None;
+        let mut new_balls = vec![];
 
+        let num_balls = self.balls.len(); // Get the current number of balls
         for ball in &mut self.balls {
-            if ball.update() {
+            if ball.update() && ball.last_multiplied.elapsed() > COOLDOWN_DURATION && num_balls + new_balls.len() < MAX_BALLS {
                 let color = Color::new(rng.gen(), rng.gen(), rng.gen(), 1.0);
                 let angle: f32 = rng.gen_range(0.0..std::f32::consts::PI * 2.0);
                 let new_velocity = na::Vector2::new(angle.cos() * 5.0, angle.sin() * 5.0);
-                new_ball = Some(Ball::new(ball.position.x, ball.position.y, new_velocity.x, new_velocity.y, color));
-                break; // Add only one new ball per update cycle
+                new_balls.push(Ball::new(ball.position.x, ball.position.y, new_velocity.x, new_velocity.y, color));
+                ball.last_multiplied = Instant::now();
             }
         }
 
-        if let Some(ball) = new_ball {
-            self.balls.push(ball);
-        }
-
+        self.balls.append(&mut new_balls);
         Ok(())
     }
 
