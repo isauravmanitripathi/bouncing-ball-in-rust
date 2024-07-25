@@ -152,6 +152,7 @@ dependencies = [
  "ggez",
  "mint",
  "nalgebra",
+ "rand",
 ]
 
 [[package]]

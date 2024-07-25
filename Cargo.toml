@@ -7,3 +7,12 @@ edition = "2021"
 ggez = "0.6.0"
 nalgebra = "0.29.0"
 mint = "0.5.8"
+rand = "0.8.5"
+
+[[bin]]
+name = "bouncing_ball"
+path = "src/main.rs"
+
+[[bin]]
+name = "multiplying_balls"
+path = "src/multiplying_balls.rs"
