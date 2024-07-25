@@ -1,7 +1,6 @@
 use ggez::{Context, ContextBuilder, GameResult};
 use ggez::event::{self, EventHandler};
-use ggez::graphics::{self, Color, DrawParam, Mesh};
-use ggez::timer;
+use ggez::graphics::{self, Color, DrawParam, MeshBuilder};
 use nalgebra as na;
 use mint;
 use rand::Rng;
@@ -11,7 +10,7 @@ const SCREEN_WIDTH: f32 = 1080.0;
 const SCREEN_HEIGHT: f32 = 1920.0;
 const BALL_RADIUS: f32 = 20.0;
 const COOLDOWN_DURATION: Duration = Duration::from_secs(1); // 1 second cooldown
-const MAX_BALLS: usize = 500; // Maximum number of balls
+const MAX_BALLS: usize = 1750; // Reduced maximum number of balls for performance
 
 struct Ball {
     position: na::Point2<f32>,
@@ -46,18 +45,6 @@ impl Ball {
         }
 
         hit
-    }
-
-    fn draw(&self, ctx: &mut Context) -> GameResult {
-        let circle = Mesh::new_circle(
-            ctx,
-            graphics::DrawMode::fill(),
-            mint::Point2 { x: 0.0, y: 0.0 },
-            BALL_RADIUS,
-            0.1,
-            self.color,
-        )?;
-        graphics::draw(ctx, &circle, DrawParam::default().dest(mint::Point2 { x: self.position.x, y: self.position.y }))
     }
 }
 
@@ -94,11 +81,21 @@ impl EventHandler<ggez::GameError> for MainState {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         graphics::clear(ctx, Color::BLACK);
+
+        let mut mesh_builder = MeshBuilder::new();
         for ball in &self.balls {
-            ball.draw(ctx)?;
+            mesh_builder.circle(
+                graphics::DrawMode::fill(),
+                mint::Point2 { x: ball.position.x, y: ball.position.y },
+                BALL_RADIUS,
+                0.1,
+                ball.color,
+            );
         }
+        let mesh = mesh_builder.build(ctx)?;
+        graphics::draw(ctx, &mesh, DrawParam::default())?;
+
         graphics::present(ctx)?;
-        timer::yield_now();
         Ok(())
     }
 }
