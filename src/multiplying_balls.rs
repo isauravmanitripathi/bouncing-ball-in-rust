@@ -10,7 +10,7 @@ const SCREEN_WIDTH: f32 = 1080.0;
 const SCREEN_HEIGHT: f32 = 1920.0;
 const BALL_RADIUS: f32 = 20.0;
 const COOLDOWN_DURATION: Duration = Duration::from_secs(1); // 1 second cooldown
-const MAX_BALLS: usize = 1750; // Reduced maximum number of balls for performance
+const MAX_BALLS: usize = 2500; // Reduced maximum number of balls for performance
 
 struct Ball {
     position: na::Point2<f32>,
@@ -90,7 +90,7 @@ impl EventHandler<ggez::GameError> for MainState {
                 BALL_RADIUS,
                 0.1,
                 ball.color,
-            );
+            )?;
         }
         let mesh = mesh_builder.build(ctx)?;
         graphics::draw(ctx, &mesh, DrawParam::default())?;
