@@ -150,6 +150,7 @@ name = "bouncing_ball"
 version = "0.1.0"
 dependencies = [
  "ggez",
+ "mint",
  "nalgebra",
 ]
 

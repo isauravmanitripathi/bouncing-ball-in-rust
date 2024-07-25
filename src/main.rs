@@ -3,6 +3,7 @@ use ggez::event::{self, EventHandler};
 use ggez::graphics::{self, Color, DrawParam, Mesh};
 use ggez::timer;
 use nalgebra as na;
+use mint;
 
 const SCREEN_WIDTH: f32 = 1920.0;
 const SCREEN_HEIGHT: f32 = 1080.0;
@@ -36,12 +37,12 @@ impl Ball {
         let circle = Mesh::new_circle(
             ctx,
             graphics::DrawMode::fill(),
-            na::Point2::new(0.0, 0.0),
+            mint::Point2 { x: 0.0, y: 0.0 },
             BALL_RADIUS,
             0.1,
             Color::WHITE,
         )?;
-        graphics::draw(ctx, &circle, DrawParam::default().dest(self.position))
+        graphics::draw(ctx, &circle, DrawParam::default().dest(mint::Point2 { x: self.position.x, y: self.position.y }))
     }
 }
 
