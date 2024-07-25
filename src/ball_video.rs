@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::fs;
 use image::{ImageBuffer, Rgba};
+use crossbeam::channel::{unbounded, Sender};
 
 const SCREEN_WIDTH: f32 = 1080.0;
 const SCREEN_HEIGHT: f32 = 1920.0;
@@ -60,16 +61,17 @@ struct MainState {
     frame_count: u32,
     recording: bool,
     temp_dir: PathBuf,
+    screenshot_sender: Sender<(Vec<u8>, PathBuf)>,
 }
 
 impl MainState {
-    fn new() -> GameResult<MainState> {
+    fn new(screenshot_sender: Sender<(Vec<u8>, PathBuf)>) -> GameResult<MainState> {
         let initial_ball = Ball::new(SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0, 5.0, 7.0, Color::WHITE);
         let mut temp_dir = std::env::current_dir().unwrap();
         temp_dir.push("temp_frames");
         fs::create_dir_all(&temp_dir).expect("Failed to create temp directory");
         println!("Temporary directory created at: {:?}", temp_dir);
-        Ok(MainState { balls: vec![initial_ball], frame_count: 0, recording: true, temp_dir })
+        Ok(MainState { balls: vec![initial_ball], frame_count: 0, recording: true, temp_dir, screenshot_sender })
     }
 
     fn save_screenshot(&self, ctx: &mut Context, path: &PathBuf) -> GameResult {
@@ -82,9 +84,8 @@ impl MainState {
             panic!("Image data size mismatch: expected {}, got {}", width * height * 4, image_data.len());
         }
 
-        let image: ImageBuffer<Rgba<u8>, _> = ImageBuffer::from_raw(width, height, image_data)
-            .expect("Failed to create ImageBuffer from raw data");
-        image.save(path).expect("Failed to save image");
+        println!("Sending screenshot data to thread...");
+        self.screenshot_sender.send((image_data, path.clone())).expect("Failed to send screenshot data");
         Ok(())
     }
 }
@@ -174,12 +175,34 @@ impl EventHandler<ggez::GameError> for MainState {
 }
 
 fn main() -> GameResult {
+    // Create a channel for sending screenshot data
+    let (screenshot_sender, screenshot_receiver) = unbounded();
+
+    // Spawn a thread to handle saving screenshots
+    std::thread::spawn(move || {
+        while let Ok((image_data, path)) = screenshot_receiver.recv() {
+            let width = 1080;  // SCREEN_WIDTH
+            let height = 1920; // SCREEN_HEIGHT
+            println!("Saving screenshot to disk: {:?}", path);
+            match ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(width, height, image_data) {
+                Some(image) => {
+                    if let Err(e) = image.save(&path) {
+                        eprintln!("Failed to save image: {:?}", e);
+                    }
+                }
+                None => {
+                    eprintln!("Failed to create ImageBuffer from raw data");
+                }
+            }
+        }
+    });
+
     let (ctx, event_loop) = ContextBuilder::new("ball_video", "Author")
         .window_setup(ggez::conf::WindowSetup::default().title("Ball Video"))
         .window_mode(ggez::conf::WindowMode::default().dimensions(SCREEN_WIDTH, SCREEN_HEIGHT))
         .build()
         .expect("Could not create ggez context!");
 
-    let state = MainState::new()?;
+    let state = MainState::new(screenshot_sender)?;
     event::run(ctx, event_loop, state)
 }
