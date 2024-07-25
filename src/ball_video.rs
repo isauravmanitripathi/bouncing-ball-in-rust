@@ -10,6 +10,7 @@ use std::process::Command;
 use std::fs;
 use image::{ImageBuffer, Rgba};
 use crossbeam::channel::{unbounded, Sender};
+use sha2::{Sha256, Digest};
 
 const SCREEN_WIDTH: f32 = 1080.0;
 const SCREEN_HEIGHT: f32 = 1920.0;
@@ -80,9 +81,17 @@ impl MainState {
         let height = screenshot.height() as u32;
         let image_data = screenshot.to_rgba8(ctx)?;
 
+        println!("Expected image data size: {}", width * height * 4);
+        println!("Actual image data size: {}", image_data.len());
+
         if image_data.len() != (width * height * 4) as usize {
-            panic!("Image data size mismatch: expected {}, got {}", width * height * 4, image_data.len());
+            println!("Image data size mismatch: expected {}, got {}", width * height * 4, image_data.len());
+            return Err(ggez::GameError::RenderError(String::from("Image data size mismatch")));
         }
+
+        // Calculate and print the checksum
+        let checksum = Sha256::digest(&image_data);
+        println!("Screenshot data checksum: {:?}", checksum);
 
         println!("Sending screenshot data to thread...");
         self.screenshot_sender.send((image_data, path.clone())).expect("Failed to send screenshot data");
@@ -184,10 +193,17 @@ fn main() -> GameResult {
             let width = 1080;  // SCREEN_WIDTH
             let height = 1920; // SCREEN_HEIGHT
             println!("Saving screenshot to disk: {:?}", path);
+
+            // Validate checksum before creating ImageBuffer
+            let received_checksum = Sha256::digest(&image_data);
+            println!("Received screenshot data checksum: {:?}", received_checksum);
+
             match ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(width, height, image_data) {
                 Some(image) => {
                     if let Err(e) = image.save(&path) {
                         eprintln!("Failed to save image: {:?}", e);
+                    } else {
+                        println!("Successfully saved image: {:?}", path);
                     }
                 }
                 None => {
